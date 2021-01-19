@@ -1,6 +1,10 @@
 #include "MyMatrix.h"
-#define KEY_NUMBER_MAT 79834
-#define INCORRECT_SIZE 1
+#define KEY_NUMBER_MAT       79834
+#define INCORRECT_SIZE       1
+#define UNINITIALIZED_MATIRX 2
+#define INCORRECT_DIMENSIONS 3
+#define NOT_SQUARE_MATRIX    4
+#define INCORRECT_B_MATRIX   5
 
 MyMatrix::MyMatrix(int s)
 {
@@ -18,6 +22,16 @@ MyMatrix::MyMatrix(int s)
     for (int j = 0; j < s; j++)
       matrix[i][j] = 0;
   }
+}
+
+MyMatrix eye(int n)
+{
+  MyMatrix M(n);
+  
+  for (int i = 0; i < n; i++)
+    M(i, i) = 1;
+
+  return M;
 }
 
 MyMatrix::MyMatrix(int r, int c)
@@ -53,8 +67,11 @@ double MyMatrix::operator()(int row, int col)const
 
 MyMatrix::MyMatrix(const MyMatrix& M)
 {
-  key = 798;
-  //std::cout << "copy\n";
+  if (M.key != KEY_NUMBER_MAT)
+    throw UNINITIALIZED_MATIRX;
+
+  key = KEY_NUMBER_MAT;
+
   rows = M.rows;
   cols = M.cols;
   size = M.size;
@@ -68,10 +85,30 @@ MyMatrix::MyMatrix(const MyMatrix& M)
   }
 }
 
+MyMatrix MyMatrix::row(int index)
+{
+  MyMatrix M(1, cols);
+
+  memcpy(M.matrix[0], matrix[index], cols*sizeof(double));
+
+  return M;
+}
+
+MyMatrix MyMatrix::col(int index)
+{
+  MyMatrix M(rows, 1);
+
+  for (int i = 0; i < rows; i++)
+    M(i, 0) = (*this)(i, index);
+
+  return M;
+}
+
 MyMatrix& MyMatrix::operator=(const MyMatrix& M)
 {
-  /*if (M.key != 798 || key != 798)
-    std::cout << "nooo\n";*/
+  if (M.key != KEY_NUMBER_MAT)
+    throw UNINITIALIZED_MATIRX;
+
 
   for (int i = 0; i < rows; i++)
     delete matrix[i];
@@ -86,8 +123,7 @@ MyMatrix& MyMatrix::operator=(const MyMatrix& M)
   for (int i = 0; i < rows; i++)
   {
     matrix[i] = new double[cols];
-    for (int j = 0; j < cols; j++)
-      (*this)(i, j) = M(i, j);
+    memcpy(matrix[i], M.matrix[i], sizeof(double) * cols);
   }
 
   return *this;
@@ -96,7 +132,6 @@ MyMatrix& MyMatrix::operator=(const MyMatrix& M)
 MyMatrix::~MyMatrix()
 {
   key = 0;
-  //std::cout << "smth\n";
   for (int i = 0; i < rows; i++)
     delete matrix[i];
   delete matrix;
@@ -124,17 +159,13 @@ MyMatrix MyMatrix::operator*(const MyMatrix& M)const
 
   if (cols != M.rows)
   {
-    std::cout << "Wrong!\n";
-    system("pause");
+    throw INCORRECT_DIMENSIONS;
   }
 
   for (int i = 0; i < rows; i++)
     for (int j = 0; j < M.cols; j++)
-    {
-      M3(i, j) = 0;
       for (int k = 0; k < cols; k++)
         M3(i, j) += (*this)(i, k) * M(k, j);
-    }
 
   return M3;
 }
@@ -230,6 +261,7 @@ MyMatrix MyMatrix::allied()const
   return newMatrix;
 }
 
+//по определению
 MyMatrix MyMatrix::inverse()const
 {
   double det = (*this).determinant();
@@ -271,13 +303,13 @@ double MyMatrix::norm()const
 
 double MyMatrix::cond()const
 {
-  return (*this).inverse().round(0.000001).norm() * (*this).norm();
+  return (*this).inverse().norm() * (*this).norm();
 }
 
 MyMatrix MyMatrix::makeCond(double cond)
 {
   if (rows != cols)
-    throw 123;
+    throw NOT_SQUARE_MATRIX;
 
   for (int i = 0; i < rows; i++)
     for (int j = 0; j < cols; j++)
@@ -297,79 +329,18 @@ MyMatrix MyMatrix::makeCond(double cond)
       }
     }
 
-  std::cout << (*this) << '\n';
-
   MyMatrix Q(rows, cols), E(rows, cols), W(rows, 1);
   E.toIdentity();
 
   for (int i = 0; i < rows; i++)
     W(i, 0) = 1 + rand() % 10;
 
-
-
-  /*MyMatrix B(rows, cols), BI(rows, cols);
-
-  for (int i = 0; i < rows; i++)
-    for (int j = 0; j < cols; j++)
-      B(i, j) = 1 + rand() % 100;
-
-  BI = B.inverseGauss();
-  Q = B * (*this) * BI;
-
-  std::cout << Q<<"\n";
-
-  std::cout << (B * BI).cond()<<"\n";
-
-  std::cout << Q.cond()<<'\n'<<B<<"\n\n"<<BI<<"\n";
-  return Q;*/
-
-
   Q = E - (2 / (W.norm() * W.norm())) * (W * (!W));
-  Q = Q.round(0.00000001);
-  std::cout << "cond U = " << (*this).cond() << "\n";
-  std::cout << "det(U) = " << (*this).determinant() << "\n";
+
   (*this) = (Q * (*this));
   (*this) = (*this) * !Q;
-  std::cout << "det(A) = " << (*this).determinant() << "\n";
-  std::cout << "Q = \n" << (Q).round(0.0001) << std::endl;
-  std::cout << "A = \n" << (*this).round(0.0001) << std::endl;
-  std::cout << "cond(Q) = " << Q.cond() << "\n";
-  std::cout << "cond(A) = " << (*this).cond() << "\n";
-  std::cout << "norm(Q) = " << Q.norm() << "\n";
-  std::cout << "norm(Q-1) = " << (Q) * !Q << "\n";
+ 
   return *this;
-
-
-  ////////////////////////
-  //if (size != B.size)
-  //{
-  //  for (int i = 0; i < size; i++)
-  //    delete matrix[i];
-  //  delete matrix;
-  //  size = B.size;
-  //  matrix = (double**)new double[size];
-  //  for (int i = 0; i < size; i++)
-  //    matrix[i] = new double[size];
-  //}
-  //////////////////////////////////
-  //(*this)(0, 0) = 1;
-  //(*this)(1, 1) = cond;
-
-  //for (int i = 0; i < size; i++)
-  //  for (int j = 0; j < size; j++)
-  //  {
-  //    if (i == j)
-  //    {
-  //      if (i == 1 || i == 0)
-  //        continue;
-  //      (*this)(i, j) = 1 + rand() % (int)cond;
-  //    }
-  //    else
-  //      (*this)(i, j) = 0;
-  //  }
-
-  //*this = (B * (*this)) * B.inverse();
-  //return *this;
 }
 
 MyMatrix MyMatrix::toIdentity()
@@ -386,10 +357,13 @@ MyMatrix MyMatrix::toIdentity()
 MyMatrix MyMatrix::LUanalysis(const MyMatrix& B)const
 {
   if (B.rows != rows || B.cols != 1)
-    throw 1;
+    throw INCORRECT_B_MATRIX;
 
   if (size < 1)
-    throw 2;
+    throw INCORRECT_SIZE;
+
+  if (rows != cols)
+    throw INCORRECT_DIMENSIONS;
 
   MyMatrix L(size), U(size), Y(size, 1), X(size, 1);
 
@@ -414,8 +388,6 @@ MyMatrix MyMatrix::LUanalysis(const MyMatrix& B)const
       L(i, m) /= U(m, m);
       L(m, i) = 0;
     }
-
-
   }
 
   for (int i = 0; i < size; i++)
@@ -424,7 +396,6 @@ MyMatrix MyMatrix::LUanalysis(const MyMatrix& B)const
     for (int j = 0; j < i; j++)
       Y(i, 0) -= Y(j, 0) * L(i, j);
   }
-  std::cout << "Y =\n" << Y << "\n";
   for (int i = size - 1; i >= 0; i--)
   {
     X(i, 0) = Y(i, 0);
@@ -432,63 +403,41 @@ MyMatrix MyMatrix::LUanalysis(const MyMatrix& B)const
       X(i, 0) -= U(i, j) * X(j, 0);
     X(i, 0) /= U(i, i);
   }
-  std::cout << "X =\n" << X << "\n";
   return X;
-}
-
-MyMatrix MyMatrix::MakeRandomChange(double r)
-{
-  double a;
-  for (int i = 0; i < rows; i++)
-    for (int j = 0; j < cols; j++)
-    {
-      a = 1 + rand() / (double)RAND_MAX * r;
-      matrix[i][j] *= a;
-    }
-  return *this;
 }
 
 MyMatrix MyMatrix::operator+(const MyMatrix& M)const
 {
   if (cols != M.cols || rows != M.rows)
-    throw 1;
+    throw INCORRECT_DIMENSIONS;
+
   MyMatrix Result(rows, cols);
+
   for (int i = 0; i < rows; i++)
     for (int j = 0; j < cols; j++)
       Result(i, j) = (*this)(i, j) + M(i, j);
+
   return Result;
 }
 
 MyMatrix MyMatrix::operator-(const MyMatrix& M)const
 {
   if (cols != M.cols || rows != M.rows)
-    throw 1;
+    throw INCORRECT_DIMENSIONS;
+
   MyMatrix Result(rows, cols);
+
   for (int i = 0; i < rows; i++)
     for (int j = 0; j < cols; j++)
       Result(i, j) = (*this)(i, j) - M(i, j);
+
   return Result;
-}
-
-MyMatrix MyMatrix::round(double EPS)
-{
-  MyMatrix A(rows, cols);
-
-  for (int i = 0; i < rows; i++)
-    for (int j = 0; j < cols; j++)
-    {
-      if (abs((*this)(i, j)) < EPS)
-        A(i, j) = 0;
-      else
-        A(i, j) = (*this)(i, j);
-    }
-  return A;
 }
 
 MyMatrix MyMatrix::inverseGauss()
 {
   if (rows != cols)
-    throw 1;
+    throw INCORRECT_DIMENSIONS;
 
   MyMatrix Right(rows, cols), Left(*this);
   double d = 0, r = 0, tmp = 0;

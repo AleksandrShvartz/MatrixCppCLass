@@ -8,3 +8,17 @@
 *.db-wal
 *.db-shm
 *.db
+*.ipch
+*.suo
+*.vcxproj
+*.filters
+*.user
+*.sln
+*.tlog
+*.obj
+*.idb
+*.recipe
+*.log
+*.pdb
+*.ilk
+*.exe

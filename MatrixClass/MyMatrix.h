@@ -25,12 +25,12 @@ public:
   MyMatrix makeCond(double cond);
   MyMatrix toIdentity();
   MyMatrix LUanalysis(const MyMatrix& B)const;
-  MyMatrix MakeRandomChange(double r);
   MyMatrix operator+(const MyMatrix& M)const;
   MyMatrix operator-(const MyMatrix& M)const;
-  MyMatrix round(double EPS);
   MyMatrix inverseGauss();
   MyMatrix makeCustomDet(double det);
+  MyMatrix row(int index);
+  MyMatrix col(int index);
 
 private:
 
@@ -38,3 +38,5 @@ private:
   int key;
   int size, rows, cols;
 };
+
+MyMatrix eye(int n);
