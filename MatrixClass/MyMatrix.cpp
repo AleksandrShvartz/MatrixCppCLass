@@ -5,6 +5,7 @@
 #define INCORRECT_DIMENSIONS 3
 #define NOT_SQUARE_MATRIX    4
 #define INCORRECT_B_MATRIX   5
+#define IRREVERSIBLE_MATRIX  6
 
 MyMatrix::MyMatrix(int s)
 {
@@ -27,7 +28,7 @@ MyMatrix::MyMatrix(int s)
 MyMatrix eye(int n)
 {
   MyMatrix M(n);
-  
+
   for (int i = 0; i < n; i++)
     M(i, i) = 1;
 
@@ -85,16 +86,16 @@ MyMatrix::MyMatrix(const MyMatrix& M)
   }
 }
 
-MyMatrix MyMatrix::row(int index)
+MyMatrix MyMatrix::row(int index)const
 {
   MyMatrix M(1, cols);
 
-  memcpy(M.matrix[0], matrix[index], cols*sizeof(double));
+  memcpy(M.matrix[0], matrix[index], cols * sizeof(double));
 
   return M;
 }
 
-MyMatrix MyMatrix::col(int index)
+MyMatrix MyMatrix::col(int index)const
 {
   MyMatrix M(rows, 1);
 
@@ -102,6 +103,28 @@ MyMatrix MyMatrix::col(int index)
     M(i, 0) = (*this)(i, index);
 
   return M;
+}
+
+MyMatrix MyMatrix::swapRows(int firstRowIndex, int secondRowIndex)
+{
+  double* buf = matrix[firstRowIndex];
+  matrix[firstRowIndex] = matrix[secondRowIndex];
+  matrix[secondRowIndex] = buf;
+  return *this;
+}
+
+MyMatrix MyMatrix::swapCols(int firstColIndex, int secondColIndex)
+{
+  double buf;
+
+  for (int i = 0; i < rows; i++)
+  {
+    buf = (*this)(i, firstColIndex);
+    (*this)(i, firstColIndex) = (*this)(i, secondColIndex);
+    (*this)(i, secondColIndex) = buf;
+  }
+
+  return *this;
 }
 
 MyMatrix& MyMatrix::operator=(const MyMatrix& M)
@@ -286,24 +309,62 @@ MyMatrix MyMatrix::operator!()const
   return newMatrix;
 }
 
-double MyMatrix::norm()const
+double MyMatrix::norm(int value)const
 {
   double s = 0, max = 0;
-
-  for (size_t j = 0; j < cols; ++j) {
-    for (size_t i = 0; i < rows; ++i) {
-      s += ((*this)(i, j)) * ((*this)(i, j));
+  if (value == 1)
+  {
+    for (int j = 0; j < cols; j++)
+    {
+      for (int i = 0; i < rows; i++)
+        s += abs((*this)(i, j));
+      if (s > max)
+        max = s;
+      s = 0;
     }
-    if (max < s)
-      max = s;
-    s = 0;
   }
-  return sqrt(max);
+  else if (value == 2)
+  {
+    if (cols != 1)
+    {
+      MyMatrix V(rows, 1);
+      double k = 1, k0 = 2;
+      MyMatrix M = (*this) * !(*this);
+      V(0, 0) = 1;
+      while (abs(k - k0) > 1e-12)
+      {
+        V = M * V;
+        k0 = k;
+        k = V.norm(3);
+        V = V * (1 / k);
+        k = sqrt(k);
+      }
+      return k;
+    }
+    else
+    {
+      for (int i = 0; i < rows; i++)
+        s += (*this)(i, 0) * (*this)(i, 0);
+      return sqrt(s);
+    }
+  }
+  else if (value == 3)
+  {
+    for (int i = 0; i < rows; i++)
+    {
+      for (int j = 0; j < cols; j++)
+        s += abs((*this)(i, j));
+      if (s > max)
+        max = s;
+      s = 0;
+    }
+  }
+  return max;
 }
 
 double MyMatrix::cond()const
 {
-  return (*this).inverse().norm() * (*this).norm();
+  return (*this).inverseGauss().norm(2) * (*this).norm(2);
 }
 
 MyMatrix MyMatrix::makeCond(double cond)
@@ -335,11 +396,11 @@ MyMatrix MyMatrix::makeCond(double cond)
   for (int i = 0; i < rows; i++)
     W(i, 0) = 1 + rand() % 10;
 
-  Q = E - (2 / (W.norm() * W.norm())) * (W * (!W));
+  Q = E - (2 / (W.norm(1) * W.norm(1))) * (W * (!W));
 
   (*this) = (Q * (*this));
   (*this) = (*this) * !Q;
- 
+
   return *this;
 }
 
@@ -434,56 +495,60 @@ MyMatrix MyMatrix::operator-(const MyMatrix& M)const
   return Result;
 }
 
-MyMatrix MyMatrix::inverseGauss()
+MyMatrix MyMatrix::inverseGauss()const
 {
   if (rows != cols)
     throw INCORRECT_DIMENSIONS;
 
-  MyMatrix Right(rows, cols), Left(*this);
-  double d = 0, r = 0, tmp = 0;
-  Right.toIdentity();//единичная
+  MyMatrix right = eye(size);
+  MyMatrix M = *this;
 
-  for (int i = 0; i < rows; i++)
+  double maxElem, mult;
+  int maxI;
+
+  for (int j = 0; j < cols; j++)
   {
-    if (Left(i, i) == 0)
-    {
-      for (int j = i + 1; j < rows; j++)//меняем столбцы местами если на диагонали 0
-        if (Left(j, i) != 0)
-        {
-          for (int k = i; k < cols; k++)
-          {
-            tmp = Left(j, k);
-            Left(j, k) = Left(i, k);
-            Left(i, k) = tmp;
+    //выбор ведущего элемента
+    maxI = j;
+    for (int i = j + 1; i < rows; i++)
+      if (abs(M(i, j)) > abs(M(maxI, j)))
+        maxI = i;
 
-            tmp = Right(j, k);
-            Right(j, k) = Right(i, k);
-            Right(i, k) = tmp;
-          }
-          break;
-        }
+    if (M(maxI, j) == 0)
+      throw IRREVERSIBLE_MATRIX;
+
+    if (maxI != j)
+    {
+      M.swapRows(maxI, j);
+      right.swapRows(maxI, j);
     }
 
-    r = Left(i, i);
-    for (int l = 0; l < cols; l++)//делим всю строку на диагональный элемент
-    {
-      Left(i, l) = Left(i, l) / r;
-      Right(i, l) = Right(i, l) / r;
-    }
+    //прямой и обратный ход
 
-    for (int j = 0; j < cols; j++)
-      if (j != i)
+    for (int i = 0; i < rows; i++)
+    {
+      if (i == j)
+        continue;
+
+      mult = M(i, j) / M(j, j);
+
+      for (int k = 0; k < cols; k++)
       {
-        d = Left(j, i);
-        for (int k = 0; k < rows; k++)
-        {
-          Left(j, k) = Left(j, k) - d * Left(i, k);
-          Right(j, k) = Right(j, k) - d * Right(i, k);
-        }
+        if (k >= j)
+          M(i, k) -= M(j, k) * mult;
+        right(i, k) -= right(j, k) * mult;
       }
-  }
+    }
+    mult = M(j, j);
+    for (int i = 0; i < cols; i++)
+    {
+      if (i >= j)
+        M(j, i) /= mult;
+      right(j, i) /= mult;
+    }
 
-  return Right;
+  }
+  return right;
 }
 
 MyMatrix MyMatrix::makeCustomDet(double det)

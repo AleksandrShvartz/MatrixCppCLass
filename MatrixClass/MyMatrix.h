@@ -20,17 +20,20 @@ public:
   MyMatrix allied()const;
   MyMatrix inverse()const;
   MyMatrix operator!()const;
-  double norm()const;
+  double norm(int value = 2)const;
   double cond()const;
   MyMatrix makeCond(double cond);
   MyMatrix toIdentity();
   MyMatrix LUanalysis(const MyMatrix& B)const;
   MyMatrix operator+(const MyMatrix& M)const;
   MyMatrix operator-(const MyMatrix& M)const;
-  MyMatrix inverseGauss();
+  MyMatrix inverseGauss()const;
   MyMatrix makeCustomDet(double det);
-  MyMatrix row(int index);
-  MyMatrix col(int index);
+  MyMatrix row(int index)const;
+  MyMatrix col(int index)const;
+  MyMatrix swapRows(int firstRowIndex, int secondRowIndex);
+  MyMatrix swapCols(int firstColIndex, int secondColIndex);
+ 
 
 private:
 
