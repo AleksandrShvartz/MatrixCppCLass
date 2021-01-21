@@ -214,22 +214,6 @@ std::istream& operator>>(std::istream& in, MyMatrix& M)
   return in;
 }
 
-MyMatrix MyMatrix::preMinor(int row, int col) const
-{
-  MyMatrix newMatrix(size - 1);
-
-  for (int i = 0, in = 0; i < size; i++)
-    if (i != row)
-    {
-      for (int j = 0, jn = 0; j < size; j++)
-        if (j != col)
-          newMatrix(in, jn++) = (*this)(i, j);
-      in++;
-    }
-
-  return newMatrix;
-}
-
 void swap(double* p1, double* p2, int size)
 {
   double a;
@@ -239,64 +223,6 @@ void swap(double* p1, double* p2, int size)
     p1[i] = p2[i];
     p2[i] = a;
   }
-}
-
-double MyMatrix::determinant() const
-{
-  const double EPS = pow(0.1, 9);
-  int n = rows;
-
-  MyMatrix a(*this);
-  double det = 1;
-  for (int i = 0; i < n; ++i)
-  {
-    int k = i;
-    for (int j = i + 1; j < n; ++j)
-      if (abs(a(j, i)) > abs(a(k, i)))
-        k = j;
-    if (abs(a(k, i)) < EPS)
-    {
-      det = 0;
-      break;
-    }
-    swap(a.matrix[i], a.matrix[k], rows);
-    if (i != k)
-      det = -det;
-    det *= a(i, i);
-    for (int j = i + 1; j < n; ++j)
-      a(i, j) = a(i, j) / a(i, i);
-    for (int j = 0; j < n; ++j)
-      if (j != i && abs(a(j, i)) > EPS)
-        for (int k = i + 1; k < n; ++k)
-          a(j, k) -= a(i, k) * a(j, k);
-  }
-  return det;
-}//меняет матрицу
-
-MyMatrix MyMatrix::allied()const
-{
-  MyMatrix newMatrix(size);
-
-  for (int i = 0; i < size; i++)
-    for (int j = 0; j < size; j++)
-      newMatrix(i, j) = this->preMinor(i, j).determinant() * ((i + j) % 2 ? -1 : 1);
-
-  return newMatrix;
-}
-
-//по определению
-MyMatrix MyMatrix::inverse()const
-{
-  double det = (*this).determinant();
-
-  if (abs(det) < 0.000000001)
-  {
-    throw 10;
-  }
-  static MyMatrix newMatrix(size);
-
-  newMatrix = *this;
-  return !((1 / det) * newMatrix.allied());
 }
 
 MyMatrix MyMatrix::operator!()const
